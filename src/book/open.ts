@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import ora from 'ora'
 import { detect } from 'jschardet'
 import iconv from 'iconv-lite'
-import { Color, colorize, println } from '../utils'
+import { Color, colorize, printPanic, println } from '../utils'
 
 export async function openBook(bookPath: string) {
   // Check if the book path is a relative path or an absolute path
@@ -50,10 +50,17 @@ export async function openBook(bookPath: string) {
     await writeFile(realBookPath, encodedContent)
     loadingBookSpinner.succeed(`Book setup is done.`)
 
-    return encodedContent.toString()
+    let bookName = realBookPath.split('/').pop()!
+    bookName = bookName.slice(0, bookName.lastIndexOf('.'))
+
+    return {
+      bookName,
+      bookPath: realBookPath,
+      bookContent: detectedContent,
+    }
   }
   catch (err) {
     loadingBookSpinner.fail('Failed to open the book with UTF-8 encoding.')
-    throw err
+    printPanic(err)
   }
 }

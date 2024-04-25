@@ -1,6 +1,5 @@
 import type { Command } from 'commander'
 import type { Fika } from '../fika'
-import { openBook } from './open'
 import { BookManager } from './manager'
 
 export function setupBookCommand({ app, program }: {
@@ -8,12 +7,13 @@ export function setupBookCommand({ app, program }: {
   program: Command
 }) {
   program
-    .command('book <bookPath>')
+    .command('book <userInputBookPath>')
     .description('Reading a book in terminal.')
-    .action(async (bookPath) => {
+    .action(async (userInputBookPath) => {
       (await BookManager
-        .loadContent({ app, bookPath }))
+        .loadContent({ app, userInputBookPath }))
         .loadProgress()
         .fitTerminalSize()
+        .renderViewFrame()
     })
 }
