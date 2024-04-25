@@ -17,6 +17,24 @@ export class BookManager {
     private bookName: string = '',
   ) {}
 
+  keyActionsMap: Record<string, () => void> = {
+    q: () => {
+      clearScreen()
+      process.exit(0)
+    },
+    j: () => {
+      this.progress = Math.min(
+        this.progress + this.bookViewRows,
+        this.contentLines.length,
+      )
+      this.renderReadingViewFrame()
+    },
+    k: () => {
+      this.progress = Math.max(0, this.progress - this.bookViewRows)
+      this.renderReadingViewFrame()
+    },
+  }
+
   static async loadContent(params: {
     app: Fika
     userInputBookPath: string
@@ -29,14 +47,18 @@ export class BookManager {
     // is resized lower to the terminal columns
     const splitted = bookContent.split('\n')
     const terminalWidth = process.stdout.columns
+    const widthFactor = 0.45
+    debugBook('Terminal width: %d', terminalWidth)
+
     const resizedLines = splitted.reduce((acc, current) => {
-      if (current.length > terminalWidth) {
-        // Cut into 2 lines
+      if (current.length > widthFactor * terminalWidth) {
+        // Split the current line into 2 lines
         const lineMid = Math.round(current.length / 2)
-        acc.push(
-          current.slice(0, lineMid),
-          current.slice(lineMid),
-        )
+        const l1 = current.slice(0, lineMid)
+        // Fill l2 start spaces as the same as l1
+        const l1StartSpaces = l1.match(/^\s+/)?.[0] || ''
+        const l2 = l1StartSpaces + current.slice(lineMid)
+        acc.push(l1, l2)
       }
       else {
         acc.push(current)
@@ -71,7 +93,20 @@ export class BookManager {
     return this
   }
 
-  renderViewFrame() {
+  listenKeyPress() {
+    process.stdin.setRawMode(true)
+    process.stdin.resume()
+    process.stdin.setEncoding('utf8')
+
+    process.stdin.on('data', (key: string) => {
+      const action = this.keyActionsMap[key]
+      action?.()
+    })
+
+    return this
+  }
+
+  renderReadingViewFrame() {
     const currentPageContentLines = this.contentLines.slice(
       this.progress,
       this.progress + this.bookViewRows,
@@ -82,10 +117,12 @@ export class BookManager {
       } ${
         colorize(`(${this.progress + 1}/${this.contentLines.length})`, ['bold', 'yellow'])
       } - ${
-        colorize((this.progress + this.bookViewRows) > this.contentLines.length
-          ? '100'
-          : `${String(Math.round((this.progress / this.contentLines.length) * 100))
-        }%`, ['bold', 'cyan'])
+          (this.progress + this.bookViewRows) > this.contentLines.length
+            ? colorize('\u{1F389} Finished', ['bold', 'green'])
+            : colorize(
+              `${String(((this.progress / this.contentLines.length) * 100).toFixed(2))}%`,
+              ['bold', 'cyan'],
+            )
       }`,
     ]
     for (let i = 0; i < currentPageContentLines.length; i++) {

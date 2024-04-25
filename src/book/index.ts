@@ -14,6 +14,7 @@ export function setupBookCommand({ app, program }: {
         .loadContent({ app, userInputBookPath }))
         .loadProgress()
         .fitTerminalSize()
-        .renderViewFrame()
+        .listenKeyPress()
+        .renderReadingViewFrame()
     })
 }
