@@ -13,12 +13,12 @@ const DEFAULT_PERSIST_DATA: FikaPersistData = {
   books: [],
 }
 
-interface FikaBookData {
+export interface FikaBookData {
   path: string
   progress: number // Last reading progress line number
 }
 
-interface FikaPersistData {
+export interface FikaPersistData {
   books: FikaBookData[]
 }
 
@@ -52,7 +52,7 @@ export class Persist {
 
     try {
       if (!isInitFika)
-        persistData = parse(dataContent!) as FikaPersistData
+        persistData = parse(dataContent!) ?? DEFAULT_PERSIST_DATA
     }
     catch (err) {
       printPanic(`Fika persist data format invalid: ${err}`)
@@ -74,19 +74,23 @@ export class Persist {
     return persist
   }
 
-  save() {
+  async save() {
     if (!this.data)
       return
 
-    return writeFile(
-      PERSIST_DATA_FILE_PATH,
-      stringify(this.data),
-      { encoding: 'utf-8' },
-    )
+    try {
+      await writeFile(
+        PERSIST_DATA_FILE_PATH,
+        stringify(this.data),
+      )
+    }
+    catch (err) {
+      printPanic(`Failed to save Fika persist data: ${err}`)
+    }
   }
 
   findBook(bookPath: string) {
-    const foundBook = this.data!.books.find(book => book.path === bookPath)
+    const foundBook = (this.data!.books ?? []).find(book => book.path === bookPath)
     if (!foundBook) {
       const newBook = {
         path: bookPath,

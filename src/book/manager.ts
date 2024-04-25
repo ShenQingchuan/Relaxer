@@ -2,6 +2,7 @@ import process from 'node:process'
 import debug from 'debug'
 import type { Fika } from '../fika'
 import { Color, clearScreen, colorize, print } from '../utils'
+import type { FikaBookData } from '../persist'
 import { openBook } from './open'
 
 const debugBook = debug('Fika:book')
@@ -15,11 +16,13 @@ export class BookManager {
     private bookViewRows: number = 0,
     private lineNumStrLen: number = String(contentLines.length).length,
     private bookName: string = '',
+    private bookData?: FikaBookData,
   ) {}
 
   keyActionsMap: Record<string, () => void> = {
-    q: () => {
+    q: async () => {
       clearScreen()
+      await this.saveProgress()
       process.exit(0)
     },
     j: () => {
@@ -78,6 +81,7 @@ export class BookManager {
 
   loadProgress() {
     const bookData = this.app.persist.findBook(this.userInputBookPath)
+    this.bookData = bookData
     this.progress = bookData.progress
     debugBook('Loaded book progress: %d', this.progress)
 
@@ -137,6 +141,16 @@ export class BookManager {
 
     clearScreen()
     print(displayLines.join('\n'))
+
+    return this
+  }
+
+  async saveProgress() {
+    if (!this.bookData)
+      return this
+
+    this.bookData.progress = this.progress
+    await this.app.persist.save()
 
     return this
   }
