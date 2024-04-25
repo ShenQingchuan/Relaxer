@@ -1,19 +1,17 @@
 {
-  "name": "pkg-placeholder",
+  "name": "go-fika",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "packageManager": "pnpm@9.0.2",
-  "description": "_description_",
-  "author": "Anthony Fu <anthonyfu117@hotmail.com>",
+  "description": "Terminal CLI for enjoying my spare time.",
+  "author": "ShenQingchuan <shen_qing_chuan@163.com>",
   "license": "MIT",
   "funding": "https://github.com/sponsors/antfu",
   "homepage": "https://github.com/antfu/pkg-placeholder#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/antfu/pkg-placeholder.git"
+    "url": "git+https://git.heteronova.cc/shenqingchuan/Fika.git"
   },
-  "bugs": "https://github.com/antfu/pkg-placeholder/issues",
-  "keywords": [],
   "sideEffects": false,
   "exports": {
     ".": {
