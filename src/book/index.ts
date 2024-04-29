@@ -1,3 +1,4 @@
+import { env } from 'node:process'
 import type { Command } from 'commander'
 import type { Fika } from '../fika'
 import { BookManager } from './manager'
@@ -15,6 +16,7 @@ export function setupBookCommand({ app, program }: {
         .loadProgress()
         .fitTerminalSize()
         .listenKeyPress()
-        .renderReadingViewFrame()
+        .endIf(!!env.DEBUG?.includes('Fika:book'))
+        ?.renderReadingViewFrame()
     })
 }

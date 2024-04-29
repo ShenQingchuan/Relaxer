@@ -3,11 +3,13 @@ import debug from 'debug'
 import type { Fika } from '../fika'
 import { Color, clearScreen, colorize, print } from '../utils'
 import type { FikaBookData } from '../persist'
+import { chunkString } from '../utils/chunk-string'
+import { BreakableChain } from '../utils/breakable-chain'
 import { openBook } from './open'
 
 const debugBook = debug('Fika:book')
 
-export class BookManager {
+export class BookManager extends BreakableChain {
   constructor(
     private readonly app: Fika,
     private readonly userInputBookPath: string,
@@ -17,24 +19,34 @@ export class BookManager {
     private lineNumStrLen: number = String(contentLines.length).length,
     private bookName: string = '',
     private bookData?: FikaBookData,
-  ) {}
+    private isOnReadingView: boolean = false,
+  ) {
+    super()
+  }
 
-  keyActionsMap: Record<string, () => void> = {
-    q: async () => {
+  private readonly readingViewKeyActionsMap: Record<string, () => void> = {
+    'q': async () => {
       clearScreen()
       await this.saveProgress()
       process.exit(0)
     },
-    j: () => {
+    'j': () => {
       this.progress = Math.min(
         this.progress + this.bookViewRows,
         this.contentLines.length,
       )
       this.renderReadingViewFrame()
     },
-    k: () => {
+    'k': () => {
       this.progress = Math.max(0, this.progress - this.bookViewRows)
       this.renderReadingViewFrame()
+    },
+    '\r': () => {
+      if (this.isOnReadingView)
+        return
+
+      this.renderReadingViewFrame()
+      this.isOnReadingView = true
     },
   }
 
@@ -51,23 +63,31 @@ export class BookManager {
     const splitted = bookContent.split('\n')
     const terminalWidth = process.stdout.columns
     const widthFactor = 0.45
-    debugBook('Terminal width: %d', terminalWidth)
+    const displayWidth = Math.floor(widthFactor * terminalWidth)
 
-    const resizedLines = splitted.reduce((acc, current) => {
-      if (current.length > widthFactor * terminalWidth) {
-        // Split the current line into 2 lines
-        const lineMid = Math.round(current.length / 2)
-        const l1 = current.slice(0, lineMid)
-        // Fill l2 start spaces as the same as l1
-        const l1StartSpaces = l1.match(/^\s+/)?.[0] || ''
-        const l2 = l1StartSpaces + current.slice(lineMid)
-        acc.push(l1, l2)
+    debugBook('Terminal width: %d', terminalWidth)
+    debugBook('Display width: %d', displayWidth)
+    debugBook(
+      'Has line length greater than %d: %o',
+      displayWidth,
+      splitted.some(line => line.length > displayWidth),
+    )
+
+    const resizedLines: string[] = []
+    for (const line of splitted) {
+      if (line.length > displayWidth) {
+        // Split the current line into chunks
+        const chunks = chunkString(line, displayWidth)
+        const chunk1Spaces = chunks[0].match(/\s*$/)?.[0] || ''
+        for (let i = 1; i < chunks.length; i++)
+          chunks[i] = chunk1Spaces + chunks[i]
+
+        resizedLines.push(...chunks)
       }
       else {
-        acc.push(current)
+        resizedLines.push(line)
       }
-      return acc
-    }, [] as string[])
+    }
 
     const newBookManager = new BookManager(
       app,
@@ -103,7 +123,7 @@ export class BookManager {
     process.stdin.setEncoding('utf8')
 
     process.stdin.on('data', (key: string) => {
-      const action = this.keyActionsMap[key]
+      const action = this.readingViewKeyActionsMap[key]
       action?.()
     })
 

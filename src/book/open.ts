@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises'
-import { cwd } from 'node:process'
+import { cwd, env } from 'node:process'
 import { join } from 'node:path'
 import ora from 'ora'
 import { detect } from 'jschardet'
@@ -48,7 +48,11 @@ export async function openBook(bookPath: string) {
     const encodedContent = iconv.encode(detectedContent, 'UTF-8')
 
     await writeFile(realBookPath, encodedContent)
-    loadingBookSpinner.succeed(`Book setup is done.`)
+    loadingBookSpinner.succeed(`Book setup is done${
+      env.DEBUG?.includes('Fika:book')
+        ? ', hit \'Enter\' to start'
+        : ''
+    }.`)
 
     let bookName = realBookPath.split('/').pop()!
     bookName = bookName.slice(0, bookName.lastIndexOf('.'))

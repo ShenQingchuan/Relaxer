@@ -1,5 +1,5 @@
 {
-  "name": "go-fika",
+  "name": "@fika/cli",
   "type": "module",
   "version": "0.0.1",
   "packageManager": "pnpm@9.0.2",
@@ -15,21 +15,13 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs"
     }
   },
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "./dist/*",
-        "./dist/index.d.ts"
-      ]
-    }
+  "bin": {
+    "fika": "./dist/index.mjs"
   },
   "files": [
     "dist"
