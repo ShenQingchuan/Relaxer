@@ -22,7 +22,10 @@ export async function openBook(bookPath: string) {
   try {
     // Read the book file, without specifying the encoding.
     // Because we need to detect the encoding of the book file.
-    const bookBuffer = await readFile(realBookPath)
+    const bookBuffer = await readFile(realBookPath).catch((err) => {
+      loadingBookSpinner.fail(Color.red('Failed to open the book file.'))
+      printPanic(err)
+    })
     const { encoding: originalEncoding } = detect(bookBuffer)
     if (
       originalEncoding.toLowerCase() !== 'utf-8'
