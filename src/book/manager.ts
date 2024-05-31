@@ -10,6 +10,9 @@ import { openBook } from './open'
 const debugBook = debug('Fika:book')
 
 export class BookManager extends BreakableChain {
+  private isOnCmdMode: boolean = false
+  private cmdInput: string = ''
+
   constructor(
     private readonly app: Fika,
     private readonly userInputBookPath: string,
@@ -19,7 +22,6 @@ export class BookManager extends BreakableChain {
     private lineNumStrLen: number = String(contentLines.length).length,
     private bookName: string = '',
     private bookData?: FikaBookData,
-    private isOnReadingView: boolean = false,
   ) {
     super()
   }
@@ -41,12 +43,10 @@ export class BookManager extends BreakableChain {
       this.progress = Math.max(0, this.progress - this.bookViewRows)
       this.renderReadingViewFrame()
     },
-    '\r': () => {
-      if (this.isOnReadingView)
-        return
-
+    ':': () => {
+      this.isOnCmdMode = true
+      this.cmdInput = ''
       this.renderReadingViewFrame()
-      this.isOnReadingView = true
     },
   }
 
@@ -123,11 +123,55 @@ export class BookManager extends BreakableChain {
     process.stdin.setEncoding('utf8')
 
     process.stdin.on('data', (key: string) => {
+      if (this.isOnCmdMode) {
+        this.handleCmdModeKeyPress(key)
+        return
+      }
+
       const action = this.readingViewKeyActionsMap[key]
       action?.()
     })
 
     return this
+  }
+
+  handleCmdModeKeyPress(key: string) {
+    if (key === '\r') {
+      this.isOnCmdMode = false
+      this.execCmd()
+    }
+    else {
+      this.cmdInput += key
+    }
+    this.renderReadingViewFrame()
+  }
+
+  execCmd() {
+    // Todo
+  }
+
+  composeReadingViewTitle() {
+    const bookName = colorize(this.bookName, ['bold', 'yellow'])
+    const readProgress = colorize(`(${this.progress + 1}/${this.contentLines.length})`, ['bold', 'yellow'])
+    const readPercentage = (this.progress + this.bookViewRows) > this.contentLines.length
+      ? colorize('\u{1F389} Finished', ['bold', 'green'])
+      : colorize(
+        `${String(((this.progress / this.contentLines.length) * 100).toFixed(2))}%`,
+        ['bold', 'cyan'],
+      )
+
+    const basicTitle = `${bookName} ${readProgress} - ${readPercentage}`
+    const titleParts = [basicTitle]
+
+    if (this.isOnCmdMode) {
+      const cmd = colorize(
+        ` :${this.cmdInput} `,
+        ['bold', 'grey', 'bgWhite'],
+      )
+      titleParts.push(cmd)
+    }
+
+    return titleParts.join(' ')
   }
 
   renderReadingViewFrame() {
@@ -136,18 +180,7 @@ export class BookManager extends BreakableChain {
       this.progress + this.bookViewRows,
     )
     const displayLines = [
-      `${
-        colorize(this.bookName, ['bold', 'yellow'])
-      } ${
-        colorize(`(${this.progress + 1}/${this.contentLines.length})`, ['bold', 'yellow'])
-      } - ${
-          (this.progress + this.bookViewRows) > this.contentLines.length
-            ? colorize('\u{1F389} Finished', ['bold', 'green'])
-            : colorize(
-              `${String(((this.progress / this.contentLines.length) * 100).toFixed(2))}%`,
-              ['bold', 'cyan'],
-            )
-      }`,
+      this.composeReadingViewTitle(),
     ]
     for (let i = 0; i < currentPageContentLines.length; i++) {
       displayLines.push(`${
