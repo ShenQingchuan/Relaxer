@@ -29,7 +29,7 @@
   "scripts": {
     "run": "esno src/index.ts",
     "build": "unbuild",
-    "dev": "unbuild --stub",
+    "watch": "unbuild --stub",
     "lint": "eslint .",
     "prepublishOnly": "nr build",
     "release": "bumpp && npm publish",
