@@ -1,17 +1,21 @@
 import process from 'node:process'
 import debug from 'debug'
 import type { Fika } from '../fika'
-import { Color, clearScreen, colorize, print } from '../utils'
+import { Color, clearScreen, colorize, print, println } from '../utils'
 import type { FikaBookData } from '../persist'
 import { chunkString } from '../utils/chunk-string'
 import { BreakableChain } from '../utils/breakable-chain'
+import { listenKeyOnce } from '../utils/listen-key-once'
 import { openBook } from './open'
 
 const debugBook = debug('Fika:book')
 
 export class BookManager extends BreakableChain {
+  private isOnSearchView: boolean = false
   private isOnCmdMode: boolean = false
   private cmdInput: string = ''
+  private searchFoundLineIndexes: number[] = []
+  private searchViewDisplayIndex: number = 0
 
   constructor(
     private readonly app: Fika,
@@ -26,11 +30,17 @@ export class BookManager extends BreakableChain {
     super()
   }
 
+  get cmdArgsList() {
+    return this.cmdInput.split(' ').slice(1)
+  }
+
+  get cmdArgsStr() {
+    return this.cmdArgsList.join(' ')
+  }
+
   private readonly readingViewKeyActionsMap: Record<string, () => void> = {
     'q': async () => {
-      clearScreen()
-      await this.saveProgress()
-      process.exit(0)
+      await this.exitBook()
     },
     'j': () => {
       this.progress = Math.min(
@@ -127,6 +137,10 @@ export class BookManager extends BreakableChain {
         this.handleCmdModeKeyPress(key)
         return
       }
+      if (this.isOnSearchView) {
+        this.handleSearchViewKeyPress(key)
+        return
+      }
 
       const action = this.readingViewKeyActionsMap[key]
       action?.()
@@ -136,18 +150,111 @@ export class BookManager extends BreakableChain {
   }
 
   handleCmdModeKeyPress(key: string) {
-    if (key === '\r') {
-      this.isOnCmdMode = false
-      this.execCmd()
+    switch (key) {
+      case '\r': // Enter
+        this.isOnCmdMode = false
+        this.execCmd()
+        break
+      case '\u007F': // Backspace
+        this.cmdInput = this.cmdInput.slice(0, -1)
+        this.renderReadingViewFrame()
+        break
+      case '\u001B': // Escape
+        this.isOnCmdMode = false
+        this.cmdInput = ''
+        this.renderReadingViewFrame()
+        break
+      default:
+        this.cmdInput += key
+        this.renderReadingViewFrame()
     }
-    else {
-      this.cmdInput += key
+  }
+
+  handleSearchViewKeyPress(key: string) {
+    switch (key) {
+      case 'q':
+        this.isOnSearchView = false
+        this.renderReadingViewFrame() // Quit search view, back to reading view
+        break
+      case 'j': {
+        if (this.searchViewDisplayIndex < this.searchFoundLineIndexes.length - 1) {
+          this.searchViewDisplayIndex = Math.min(
+            this.searchFoundLineIndexes.length - 1,
+            this.searchViewDisplayIndex + 1,
+          )
+        }
+
+        this.renderSearchViewFrame()
+        break
+      }
+      case 'k': {
+        if (this.searchViewDisplayIndex > 0)
+          this.searchViewDisplayIndex = Math.max(0, this.searchViewDisplayIndex - 1)
+
+        this.renderSearchViewFrame()
+        break
+      }
+      case '\r':
+        this.isOnSearchView = false
+        this.progress = this.searchFoundLineIndexes[this.searchViewDisplayIndex]
+        this.renderReadingViewFrame()
+        break
     }
-    this.renderReadingViewFrame()
   }
 
   execCmd() {
-    // Todo
+    const [cmdType, ...cmdArgs] = this.cmdInput.split(' ')
+
+    switch (cmdType) {
+      case 's':
+        this.isOnCmdMode = false
+        this.isOnSearchView = true
+
+        // Search
+        for (let i = 0; i < this.contentLines.length; i++) {
+          if (this.contentLines[i].includes(cmdArgs.join(' ')))
+            this.searchFoundLineIndexes.push(i)
+        }
+        this.renderSearchViewFrame()
+        break
+      case 'g': {
+        // Go to line
+        const lineNum = Number(cmdArgs[0])
+        this.progress = Math.min(
+          Math.max(0, lineNum - 1),
+          this.contentLines.length,
+        )
+        break
+      }
+      default:
+        clearScreen()
+        println(
+          colorize(
+            [
+              '┌─────────────────────────────────────────┐',
+              // Magic number 22 is spaces left for filling and aligning the container box
+              `│  Unknown command: ${
+                  cmdType.length > 22
+                    ? `${cmdType.slice(0, 16)}...`
+                    : cmdType
+                }${
+                  cmdType.length > 22
+                    ? ' '.repeat(3) // 3 = 22 - 16 - 3
+                    : ' '.repeat(22 - cmdType.length)
+                }│`,
+              '│  Enter to continue reading ...          │',
+              '│  Type "q" to quit.                      │',
+              '└─────────────────────────────────────────┘',
+            ].join('\n'),
+            ['red', 'bold'],
+          ),
+        )
+        listenKeyOnce({
+          '\r': () => this.renderReadingViewFrame(),
+          'q': () => this.exitBook(),
+        })
+        break
+    }
   }
 
   composeReadingViewTitle() {
@@ -172,6 +279,80 @@ export class BookManager extends BreakableChain {
     }
 
     return titleParts.join(' ')
+  }
+
+  composeSearchViewTitle() {
+    const bookName = colorize(this.bookName, ['bold', 'yellow'])
+    const searchKeyword = colorize(this.cmdArgsStr, ['bold', 'cyan'])
+    const searchFoundCount = colorize(
+      this.searchFoundLineIndexes.length === 0
+        ? 'No result found'
+        : `(${this.searchViewDisplayIndex + 1} / ${this.searchFoundLineIndexes.length} found)`,
+      ['bold', 'cyan'],
+    )
+
+    return `${bookName} Search: ${searchKeyword} - ${searchFoundCount}`
+  }
+
+  renderSearchViewFrame() {
+    const displayLines = [
+      this.composeSearchViewTitle(),
+    ]
+
+    // Display lines before and after the current found line
+    const displayIndex = this.searchFoundLineIndexes[this.searchViewDisplayIndex]
+    const lineIndexBeforeCount = Math.ceil((this.bookViewRows - 1) / 2)
+    const lineIndexAfterCount = lineIndexBeforeCount + (this.bookViewRows % 2 === 0 ? 0 : 1)
+    const displayStartIndex = displayIndex - lineIndexBeforeCount
+    const searchViewLines = this.contentLines
+      .slice(
+        displayStartIndex,
+        displayIndex + lineIndexAfterCount,
+      )
+    for (let i = 0; i < searchViewLines.length; i++) {
+      // Highlight the found line
+      if (i === lineIndexBeforeCount) {
+        // Replace the found keyword with red color
+        const foundLine = searchViewLines[i]
+        const foundKeyword = this.cmdArgsStr
+        const foundKeywordIndex = foundLine.indexOf(foundKeyword)
+        const foundKeywordEndIndex = foundKeywordIndex + foundKeyword.length
+        const foundKeywordColorized = colorize(
+          foundLine.slice(foundKeywordIndex, foundKeywordEndIndex),
+          ['bold', 'red'],
+        )
+        const strBeforeKeyword = foundLine.slice(0, foundKeywordIndex)
+        const strAfterKeyword = foundLine.slice(foundKeywordEndIndex)
+        const hightlightedContent = `${
+          colorize(strBeforeKeyword, ['bold', 'bgYellow'])
+        }${
+          colorize(foundKeywordColorized, ['bold', 'bgYellow'])
+        }${
+          colorize(strAfterKeyword, ['bold', 'bgYellow'])
+        }`
+
+        displayLines.push(`${
+          colorize(
+            `${String(displayIndex + 1).padStart(this.lineNumStrLen, ' ')} | `,
+            ['bold', 'bgYellow', 'cyan'],
+          )
+        }${
+          hightlightedContent
+        }`)
+      }
+      else {
+        displayLines.push(`${
+          Color
+            .cyan(`${String(displayStartIndex + i + 1)
+            .padStart(this.lineNumStrLen, ' ')} | `)
+        }${
+          searchViewLines[i]
+        }`)
+      }
+    }
+
+    clearScreen()
+    print(displayLines.join('\n'))
   }
 
   renderReadingViewFrame() {
@@ -206,5 +387,11 @@ export class BookManager extends BreakableChain {
     await this.app.persist.save()
 
     return this
+  }
+
+  async exitBook() {
+    clearScreen()
+    await this.saveProgress()
+    process.exit(0)
   }
 }
