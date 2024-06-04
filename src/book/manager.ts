@@ -152,8 +152,10 @@ export class BookManager extends BreakableChain {
   handleCmdModeKeyPress(key: string) {
     switch (key) {
       case '\r': // Enter
-        this.isOnCmdMode = false
         this.execCmd()
+        this.isOnCmdMode = false
+        this.cmdInput = ''
+        this.renderReadingViewFrame()
         break
       case '\u007F': // Backspace
         this.cmdInput = this.cmdInput.slice(0, -1)
@@ -224,6 +226,7 @@ export class BookManager extends BreakableChain {
           Math.max(0, lineNum - 1),
           this.contentLines.length,
         )
+        this.renderReadingViewFrame()
         break
       }
       default:
@@ -259,9 +262,11 @@ export class BookManager extends BreakableChain {
 
   composeReadingViewTitle() {
     const bookName = colorize(this.bookName, ['bold', 'yellow'])
-    const readProgress = colorize(`(${this.progress + 1}/${this.contentLines.length})`, ['bold', 'yellow'])
+    const readProgress = this.progress + 1 > this.contentLines.length
+      ? colorize('END', ['bold', 'yellow'])
+      : colorize(`(${this.progress + 1}/${this.contentLines.length})`, ['bold', 'yellow'])
     const readPercentage = (this.progress + this.bookViewRows) > this.contentLines.length
-      ? colorize('\u{1F389} Finished', ['bold', 'green'])
+      ? colorize('\u{1F389} Finished reading!', ['bold', 'green'])
       : colorize(
         `${String(((this.progress / this.contentLines.length) * 100).toFixed(2))}%`,
         ['bold', 'cyan'],
