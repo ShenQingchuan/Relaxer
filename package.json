@@ -1,7 +1,7 @@
 {
   "name": "@relaxer/cli",
   "type": "module",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "packageManager": "pnpm@9.14.4",
   "description": "Terminal CLI for enjoying my spare time.",
   "author": "ShenQingchuan <shen_qing_chuan@163.com>",
