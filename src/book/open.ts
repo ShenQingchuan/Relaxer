@@ -50,7 +50,7 @@ export async function openBook(bookPath: string) {
     const detectedContent = iconv.decode(bookBuffer, originalEncoding)
     const encodedContent = iconv.encode(detectedContent, 'UTF-8')
 
-    await writeFile(realBookPath, encodedContent)
+    await writeFile(realBookPath, encodedContent.toString())
     loadingBookSpinner.succeed(`Book setup is done${
       env.DEBUG?.includes('Relaxer:book')
         ? ', hit \'Enter\' to start'
