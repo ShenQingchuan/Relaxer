@@ -1,16 +1,16 @@
-import process from 'node:process'
-import debug from 'debug'
-import type { Relaxer } from '../relaxer'
-import { Color, clearScreen, colorize, print, println } from '../utils'
 import type { RelaxerBookData } from '../persist'
-import { chunkString } from '../utils/chunk-string'
+import type { Relaxer } from '../relaxer'
+import type { BookCommandOptions } from './shared'
+import process from 'node:process'
+import { clearScreen, Color, colorize, print, println } from '../utils'
 import { BreakableChain } from '../utils/breakable-chain'
+import { chunkString } from '../utils/chunk-string'
 import { listenKeyOnce } from '../utils/listen-key-once'
 import { openBook } from './open'
-
-const debugBook = debug('Relaxer:book')
+import { debugBook } from './shared'
 
 export class BookManager extends BreakableChain {
+  private isDebugWaitStart: boolean = process.env.DEBUG?.includes('Relaxer:book') || false
   private isOnSearchView: boolean = false
   private isOnCmdMode: boolean = false
   private cmdInput: string = ''
@@ -63,8 +63,9 @@ export class BookManager extends BreakableChain {
   static async loadContent(params: {
     app: Relaxer
     userInputBookPath: string
+    cmdOptions: BookCommandOptions
   }) {
-    const { app, userInputBookPath } = params
+    const { app, userInputBookPath, cmdOptions } = params
 
     const { bookPath, bookContent, bookName } = await openBook(userInputBookPath)
 
@@ -77,14 +78,21 @@ export class BookManager extends BreakableChain {
 
     debugBook('Terminal width: %d', terminalWidth)
     debugBook('Display width: %d', displayWidth)
+
+    const hasOverflowLine = splitted.some(line => line.length > displayWidth)
     debugBook(
       'Has line length greater than %d: %o',
       displayWidth,
-      splitted.some(line => line.length > displayWidth),
+      hasOverflowLine,
     )
 
     const resizedLines: string[] = []
     for (const line of splitted) {
+      if (line.trim() === '' && !cmdOptions.keepEmptyLines) {
+        // Remove empty lines
+        continue
+      }
+
       if (line.length > displayWidth) {
         // Split the current line into chunks
         const chunks = chunkString(line, displayWidth)
@@ -133,6 +141,10 @@ export class BookManager extends BreakableChain {
     process.stdin.setEncoding('utf8')
 
     process.stdin.on('data', (key: string) => {
+      if (this.isDebugWaitStart) {
+        this.handleDebugStartKeyPress(key)
+        return
+      }
       if (this.isOnCmdMode) {
         this.handleCmdModeKeyPress(key)
         return
@@ -147,6 +159,24 @@ export class BookManager extends BreakableChain {
     })
 
     return this
+  }
+
+  handleDebugStartKeyPress(key: string) {
+    if (key === 'q') {
+      this.exitBook()
+    }
+    // Hit enter to start reading view
+    else if (key === '\r') {
+      this.isDebugWaitStart = false
+      this.renderReadingViewFrame()
+    }
+    else {
+      println(
+        Color.red(
+          `Pressed key is ignored until hit 'Enter' to start reading view.`,
+        ),
+      )
+    }
   }
 
   handleCmdModeKeyPress(key: string) {
@@ -229,6 +259,27 @@ export class BookManager extends BreakableChain {
         this.renderReadingViewFrame()
         break
       }
+      case 'j': {
+        // Next N lines
+        const n = Number(cmdArgs[0])
+        if (Number.isNaN(n))
+          break
+
+        this.progress = Math.min(
+          this.progress + n,
+          this.contentLines.length,
+        )
+        break
+      }
+      case 'k': {
+        // Previous N lines
+        const n = Number(cmdArgs[0])
+        if (Number.isNaN(n))
+          break
+
+        this.progress = Math.max(0, this.progress - n)
+        break
+      }
       default:
         clearScreen()
         println(
@@ -237,14 +288,14 @@ export class BookManager extends BreakableChain {
               '┌─────────────────────────────────────────┐',
               // Magic number 22 is spaces left for filling and aligning the container box
               `│  Unknown command: ${
-                  cmdType.length > 22
-                    ? `${cmdType.slice(0, 16)}...`
-                    : cmdType
-                }${
-                  cmdType.length > 22
-                    ? ' '.repeat(3) // 3 = 22 - 16 - 3
-                    : ' '.repeat(22 - cmdType.length)
-                }│`,
+                cmdType.length > 22
+                  ? `${cmdType.slice(0, 16)}...`
+                  : cmdType
+              }${
+                cmdType.length > 22
+                  ? ' '.repeat(3) // 3 = 22 - 16 - 3
+                  : ' '.repeat(22 - cmdType.length)
+              }│`,
               '│  Enter to continue reading ...          │',
               '│  Type "q" to quit.                      │',
               '└─────────────────────────────────────────┘',
@@ -349,7 +400,7 @@ export class BookManager extends BreakableChain {
         displayLines.push(`${
           Color
             .cyan(`${String(displayStartIndex + i + 1)
-            .padStart(this.lineNumStrLen, ' ')} | `)
+              .padStart(this.lineNumStrLen, ' ')} | `)
         }${
           searchViewLines[i]
         }`)
@@ -372,7 +423,7 @@ export class BookManager extends BreakableChain {
       displayLines.push(`${
         Color
           .cyan(`${String(this.progress + i + 1)
-          .padStart(this.lineNumStrLen, ' ')} | `)
+            .padStart(this.lineNumStrLen, ' ')} | `)
       }${
         currentPageContentLines[i]
       }`)

@@ -6,6 +6,9 @@
   "description": "Terminal CLI for enjoying my spare time.",
   "author": "ShenQingchuan <shen_qing_chuan@163.com>",
   "license": "MIT",
+  "keywords": [
+    "Command line application"
+  ],
   "sideEffects": false,
   "exports": {
     ".": {
