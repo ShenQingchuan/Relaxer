@@ -7,31 +7,31 @@ import { printPanic } from './utils'
 
 const PERSIST_DATA_FILE_PATH = join(
   env.HOME || env.USERPROFILE || cwd(),
-  '.fika.yaml',
+  '.relaxer.yaml',
 )
-const DEFAULT_PERSIST_DATA: FikaPersistData = {
+const DEFAULT_PERSIST_DATA: RelaxerPersistData = {
   books: [],
 }
 
-export interface FikaBookData {
+export interface RelaxerBookData {
   path: string
   progress: number // Last reading progress line number
 }
 
-export interface FikaPersistData {
-  books: FikaBookData[]
+export interface RelaxerPersistData {
+  books: RelaxerBookData[]
 }
 
 export class Persist {
   constructor(
-    private data: FikaPersistData,
+    private data: RelaxerPersistData,
   ) {}
 
   static async load() {
-    const loadPersistSpinner = ora('Loading Fika persist data...').start()
+    const loadPersistSpinner = ora('Loading Relaxer persist data...').start()
     let dataContent: string
-    let persistData: FikaPersistData
-    let isInitFika = false
+    let persistData: RelaxerPersistData
+    let isInitRelaxer = false
 
     try {
       dataContent = await readFile(
@@ -42,8 +42,8 @@ export class Persist {
     catch (err: any) {
       // If the file does not exist, create it with default data
       if (err.code === 'ENOENT' && err.message.includes('no such file')) {
-        isInitFika = true
-        loadPersistSpinner.warn('Fika persist data not found, initializing...')
+        isInitRelaxer = true
+        loadPersistSpinner.warn('Relaxer persist data not found, initializing...')
       }
       else {
         printPanic(err)
@@ -51,24 +51,24 @@ export class Persist {
     }
 
     try {
-      if (!isInitFika)
+      if (!isInitRelaxer)
         persistData = parse(dataContent!) ?? DEFAULT_PERSIST_DATA
     }
     catch (err) {
-      printPanic(`Fika persist data format invalid: ${err}`)
+      printPanic(`Relaxer persist data format invalid: ${err}`)
     }
 
     const persist = new Persist(
-      isInitFika
+      isInitRelaxer
         ? DEFAULT_PERSIST_DATA
         : persistData!,
     )
-    if (isInitFika) {
+    if (isInitRelaxer) {
       await persist.save()
-      loadPersistSpinner.succeed('Fika persist data initialized!')
+      loadPersistSpinner.succeed('Relaxer persist data initialized!')
     }
     else {
-      loadPersistSpinner.succeed('Fika persist data loaded!')
+      loadPersistSpinner.succeed('Relaxer persist data loaded!')
     }
 
     return persist
@@ -85,7 +85,7 @@ export class Persist {
       )
     }
     catch (err) {
-      printPanic(`Failed to save Fika persist data: ${err}`)
+      printPanic(`Failed to save Relaxer persist data: ${err}`)
     }
   }
 

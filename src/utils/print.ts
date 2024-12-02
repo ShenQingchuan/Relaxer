@@ -12,7 +12,7 @@ export function println(message: string) {
 export function printPanic(err: unknown): never {
   println(
     colorize(
-      `Fika panic: ${String(err)}`,
+      `Relaxer panic: ${String(err)}`,
       ['red', 'bold'],
     ),
   )

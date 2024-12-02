@@ -1,10 +1,10 @@
 import { env } from 'node:process'
 import type { Command } from 'commander'
-import type { Fika } from '../fika'
+import type { Relaxer } from '../relaxer'
 import { BookManager } from './manager'
 
 export function setupBookCommand({ app, program }: {
-  app: Fika
+  app: Relaxer
   program: Command
 }) {
   program
@@ -16,7 +16,7 @@ export function setupBookCommand({ app, program }: {
         .loadProgress()
         .fitTerminalSize()
         .listenKeyPress()
-        .endIf(!!env.DEBUG?.includes('Fika:book'))
+        .endIf(!!env.DEBUG?.includes('Relaxer:book'))
         ?.renderReadingViewFrame()
     })
 }

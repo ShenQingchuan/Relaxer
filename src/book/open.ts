@@ -52,7 +52,7 @@ export async function openBook(bookPath: string) {
 
     await writeFile(realBookPath, encodedContent)
     loadingBookSpinner.succeed(`Book setup is done${
-      env.DEBUG?.includes('Fika:book')
+      env.DEBUG?.includes('Relaxer:book')
         ? ', hit \'Enter\' to start'
         : ''
     }.`)

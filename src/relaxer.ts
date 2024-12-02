@@ -4,18 +4,18 @@ import packageJSON from '../package.json'
 import { Persist } from './persist'
 import { setupBookCommand } from './book'
 
-export class Fika {
+export class Relaxer {
   constructor(
     public persist: Persist,
   ) {}
 
   static async run() {
     const persistData = await Persist.load()
-    const app = new Fika(persistData)
+    const app = new Relaxer(persistData)
 
     program
       .version(packageJSON.version)
-      .name('fika')
+      .name('relaxer')
     app.setupCommands()
 
     program.parse(argv)

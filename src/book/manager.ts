@@ -1,14 +1,14 @@
 import process from 'node:process'
 import debug from 'debug'
-import type { Fika } from '../fika'
+import type { Relaxer } from '../relaxer'
 import { Color, clearScreen, colorize, print, println } from '../utils'
-import type { FikaBookData } from '../persist'
+import type { RelaxerBookData } from '../persist'
 import { chunkString } from '../utils/chunk-string'
 import { BreakableChain } from '../utils/breakable-chain'
 import { listenKeyOnce } from '../utils/listen-key-once'
 import { openBook } from './open'
 
-const debugBook = debug('Fika:book')
+const debugBook = debug('Relaxer:book')
 
 export class BookManager extends BreakableChain {
   private isOnSearchView: boolean = false
@@ -18,14 +18,14 @@ export class BookManager extends BreakableChain {
   private searchViewDisplayIndex: number = 0
 
   constructor(
-    private readonly app: Fika,
+    private readonly app: Relaxer,
     private readonly userInputBookPath: string,
     private contentLines: string[],
     private progress: number = 0,
     private bookViewRows: number = 0,
     private lineNumStrLen: number = String(contentLines.length).length,
     private bookName: string = '',
-    private bookData?: FikaBookData,
+    private bookData?: RelaxerBookData,
   ) {
     super()
   }
@@ -61,7 +61,7 @@ export class BookManager extends BreakableChain {
   }
 
   static async loadContent(params: {
-    app: Fika
+    app: Relaxer
     userInputBookPath: string
   }) {
     const { app, userInputBookPath } = params
@@ -120,7 +120,7 @@ export class BookManager extends BreakableChain {
 
   fitTerminalSize() {
     const terminalRows = process.stdout.rows
-    // Remaining 1 row for the Fika app info display
+    // Remaining 1 row for the Relaxer app info display
     this.bookViewRows = terminalRows - 1
     debugBook('Book view size: %d rows', this.bookViewRows)
 

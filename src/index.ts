@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-import { Fika } from './fika'
+import { Relaxer } from './relaxer'
 
-Fika.run()
+Relaxer.run()

@@ -1,17 +1,11 @@
 {
-  "name": "@fika/cli",
+  "name": "@relaxer/cli",
   "type": "module",
   "version": "0.0.1",
   "packageManager": "pnpm@9.3.0",
   "description": "Terminal CLI for enjoying my spare time.",
   "author": "ShenQingchuan <shen_qing_chuan@163.com>",
   "license": "MIT",
-  "funding": "https://github.com/sponsors/antfu",
-  "homepage": "https://github.com/antfu/pkg-placeholder#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://git.heteronova.cc/shenqingchuan/Fika.git"
-  },
   "sideEffects": false,
   "exports": {
     ".": {
@@ -21,7 +15,7 @@
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "bin": {
-    "fika": "./dist/index.mjs"
+    "relax": "./dist/index.mjs"
   },
   "files": [
     "dist"
