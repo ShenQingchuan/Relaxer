@@ -1,8 +1,8 @@
-import { cwd, env } from 'node:process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { parse, stringify } from 'yaml'
+import { cwd, env } from 'node:process'
 import ora from 'ora'
+import { parse, stringify } from 'yaml'
 import { printPanic } from './utils'
 
 const PERSIST_DATA_FILE_PATH = join(

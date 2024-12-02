@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises'
-import { cwd, env } from 'node:process'
 import { join } from 'node:path'
-import ora from 'ora'
-import { detect } from 'jschardet'
+import { cwd, env } from 'node:process'
 import iconv from 'iconv-lite'
-import { Color, colorize, printPanic, println } from '../utils'
+import { detect } from 'jschardet'
+import ora from 'ora'
+import { Color, colorize, println, printPanic } from '../utils'
 
 export async function openBook(bookPath: string) {
   // Check if the book path is a relative path or an absolute path
@@ -32,17 +32,17 @@ export async function openBook(bookPath: string) {
       || originalEncoding.toLowerCase() !== 'utf8'
     ) {
       println(
-      `Encoding is detected as ${
-        colorize(
-          originalEncoding,
-          ['bold', 'yellow'],
-        )
-      }. Converting it to ${
-        colorize(
-          originalEncoding,
-          ['bold', 'cyan'],
-        )
-      }...`,
+        `Encoding is detected as ${
+          colorize(
+            originalEncoding,
+            ['bold', 'yellow'],
+          )
+        }. Converting it to ${
+          colorize(
+            originalEncoding,
+            ['bold', 'cyan'],
+          )
+        }...`,
       )
     }
 

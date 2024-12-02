@@ -1,8 +1,8 @@
 import { argv } from 'node:process'
 import { program } from 'commander'
 import packageJSON from '../package.json'
-import { Persist } from './persist'
 import { setupBookCommand } from './book'
+import { Persist } from './persist'
 
 export class Relaxer {
   constructor(
