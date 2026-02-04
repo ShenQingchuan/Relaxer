@@ -13,6 +13,7 @@ export class BookManager extends BreakableChain {
   private isDebugWaitStart: boolean = process.env.DEBUG?.includes('Relaxer:book') || false
   private isOnSearchView: boolean = false
   private isOnCmdMode: boolean = false
+  private isOnCmdErrorView: boolean = false
   private cmdInput: string = ''
   private searchFoundLineIndexes: number[] = []
   private searchViewDisplayIndex: number = 0
@@ -184,11 +185,16 @@ export class BookManager extends BreakableChain {
       case '\r': // Enter
         this.execCmd()
         this.isOnCmdMode = false
-        this.cmdInput = ''
-        this.renderReadingViewFrame()
+        // If switched to search view, keep cmdInput for keyword display
+        // If showing error view, don't overwrite it
+        if (!this.isOnSearchView && !this.isOnCmdErrorView) {
+          this.cmdInput = ''
+          this.renderReadingViewFrame()
+        }
         break
       case '\u007F': // Backspace
-        this.cmdInput = this.cmdInput.slice(0, -1)
+        // Use Array.from to handle multi-byte Unicode characters (e.g. Chinese)
+        this.cmdInput = Array.from(this.cmdInput).slice(0, -1).join('')
         this.renderReadingViewFrame()
         break
       case '\u001B': // Escape
@@ -197,6 +203,9 @@ export class BookManager extends BreakableChain {
         this.renderReadingViewFrame()
         break
       default:
+        // Ignore control characters
+        if (key.codePointAt(0)! < 32)
+          break
         this.cmdInput += key
         this.renderReadingViewFrame()
     }
@@ -228,42 +237,84 @@ export class BookManager extends BreakableChain {
       }
       case '\r':
         this.isOnSearchView = false
-        this.progress = this.searchFoundLineIndexes[this.searchViewDisplayIndex]
+        // Only jump to line if there are search results
+        if (this.searchFoundLineIndexes.length > 0) {
+          this.progress = this.searchFoundLineIndexes[this.searchViewDisplayIndex]
+        }
         this.renderReadingViewFrame()
         break
     }
   }
 
+  showCmdError(message: string) {
+    this.isOnCmdErrorView = true
+    clearScreen()
+    println(
+      colorize(
+        [
+          '┌─────────────────────────────────────────┐',
+          `│  ${message.padEnd(39)}│`,
+          '│  Enter to continue reading ...          │',
+          '│  Type "q" to quit.                      │',
+          '└─────────────────────────────────────────┘',
+        ].join('\n'),
+        ['red', 'bold'],
+      ),
+    )
+    listenKeyOnce({
+      '\r': () => {
+        this.isOnCmdErrorView = false
+        this.renderReadingViewFrame()
+      },
+      'q': () => this.exitBook(),
+    })
+  }
+
   execCmd() {
     const [cmdType, ...cmdArgs] = this.cmdInput.split(' ')
+    const cmdArgsStr = cmdArgs.join(' ').trim()
 
     switch (cmdType) {
-      case 's':
+      case 's': {
+        if (!cmdArgsStr) {
+          this.showCmdError('Usage: s <keyword>')
+          break
+        }
+
+        // Reset search state
+        this.searchFoundLineIndexes = []
+        this.searchViewDisplayIndex = 0
+
         this.isOnCmdMode = false
         this.isOnSearchView = true
 
         // Search
         for (let i = 0; i < this.contentLines.length; i++) {
-          if (this.contentLines[i].includes(cmdArgs.join(' ')))
+          if (this.contentLines[i].includes(cmdArgsStr))
             this.searchFoundLineIndexes.push(i)
         }
         this.renderSearchViewFrame()
         break
+      }
       case 'g': {
-        // Go to line
         const lineNum = Number(cmdArgs[0])
+        if (!cmdArgs[0] || Number.isNaN(lineNum)) {
+          this.showCmdError('Usage: g <line_number>')
+          break
+        }
+
         this.progress = Math.min(
           Math.max(0, lineNum - 1),
           this.contentLines.length,
         )
-        this.renderReadingViewFrame()
         break
       }
       case 'j': {
-        // Next N lines
         const n = Number(cmdArgs[0])
-        if (Number.isNaN(n))
+        if (!cmdArgs[0] || Number.isNaN(n)) {
+          this.showCmdError('Usage: j <n>')
           break
+        }
 
         this.progress = Math.min(
           this.progress + n,
@@ -272,42 +323,22 @@ export class BookManager extends BreakableChain {
         break
       }
       case 'k': {
-        // Previous N lines
         const n = Number(cmdArgs[0])
-        if (Number.isNaN(n))
+        if (!cmdArgs[0] || Number.isNaN(n)) {
+          this.showCmdError('Usage: k <n>')
           break
+        }
 
         this.progress = Math.max(0, this.progress - n)
         break
       }
-      default:
-        clearScreen()
-        println(
-          colorize(
-            [
-              '┌─────────────────────────────────────────┐',
-              // Magic number 22 is spaces left for filling and aligning the container box
-              `│  Unknown command: ${
-                cmdType.length > 22
-                  ? `${cmdType.slice(0, 16)}...`
-                  : cmdType
-              }${
-                cmdType.length > 22
-                  ? ' '.repeat(3) // 3 = 22 - 16 - 3
-                  : ' '.repeat(22 - cmdType.length)
-              }│`,
-              '│  Enter to continue reading ...          │',
-              '│  Type "q" to quit.                      │',
-              '└─────────────────────────────────────────┘',
-            ].join('\n'),
-            ['red', 'bold'],
-          ),
-        )
-        listenKeyOnce({
-          '\r': () => this.renderReadingViewFrame(),
-          'q': () => this.exitBook(),
-        })
+      default: {
+        const displayCmd = cmdType.length > 22
+          ? `${cmdType.slice(0, 19)}...`
+          : cmdType
+        this.showCmdError(`Unknown command: ${displayCmd}`)
         break
+      }
     }
   }
 
@@ -355,11 +386,19 @@ export class BookManager extends BreakableChain {
       this.composeSearchViewTitle(),
     ]
 
+    // No search results
+    if (this.searchFoundLineIndexes.length === 0) {
+      clearScreen()
+      print(displayLines.join('\n'))
+      return
+    }
+
     // Display lines before and after the current found line
     const displayIndex = this.searchFoundLineIndexes[this.searchViewDisplayIndex]
     const lineIndexBeforeCount = Math.ceil((this.bookViewRows - 1) / 2)
     const lineIndexAfterCount = lineIndexBeforeCount + (this.bookViewRows % 2 === 0 ? 0 : 1)
-    const displayStartIndex = displayIndex - lineIndexBeforeCount
+    const displayStartIndex = Math.max(0, displayIndex - lineIndexBeforeCount)
+    const highlightLineOffset = displayIndex - displayStartIndex
     const searchViewLines = this.contentLines
       .slice(
         displayStartIndex,
@@ -367,7 +406,7 @@ export class BookManager extends BreakableChain {
       )
     for (let i = 0; i < searchViewLines.length; i++) {
       // Highlight the found line
-      if (i === lineIndexBeforeCount) {
+      if (i === highlightLineOffset) {
         // Replace the found keyword with red color
         const foundLine = searchViewLines[i]
         const foundKeyword = this.cmdArgsStr
